@@ -77,6 +77,11 @@ def likes_dislike_kb() -> ReplyKeyboardMarkup:
     return kb.as_markup(resize_keyboard=True)
 
 
+def back_kb() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardBuilder()
+    kb.add(KeyboardButton(text='назад'))
+    return kb.as_markup(resize_keyboard=True)
+
 # def main_options_kb() -> ReplyKeyboardMarkup:
 #     kb = ReplyKeyboardBuilder()
 #     kb.add(KeyboardButton(text='1. Смотреть анеты'))

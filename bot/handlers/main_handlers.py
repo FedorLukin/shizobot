@@ -26,11 +26,11 @@ async def show_next_anket(message: Message, state: FSMContext):
     await state.update_data(processing=anket_id)
 
 
-async def render_anket(anket_id, message: Message, pre_text=''):
+async def render_anket(anket_id, message: Message, pre_text='', after_text=''):
     anket = await get_anket(anket_id)
     media_list = await get_media(anket_id)
     city = f', {anket.city}' if anket.city else ''
-    anket_text = pre_text + f'{anket.name}, {anket.age}{city} - {anket.description}'
+    anket_text = f'{pre_text}{anket.name}, {anket.age}{city} - {anket.description}{after_text}'
     if media_list[0].video:
         await message.answer_video(video=media_list[0].file, caption=anket_text)
     else:
@@ -38,7 +38,7 @@ async def render_anket(anket_id, message: Message, pre_text=''):
         for media in media_list:
             album_builder.add_photo(media=media.file)
         album = album_builder.build()
-        await message.answer_media_group(media=album, caption=anket_text)
+        await message.answer_media_group(media=album, caption=anket_text, )
 
 
 async def get_anket_from_queue(tg_id: int, state: FSMContext):
@@ -61,10 +61,12 @@ async def get_anket_from_queue(tg_id: int, state: FSMContext):
 
 @router.message(Command('start'))
 async def start(message: Message, state: FSMContext) -> None:
-    if not get_user(message.from_user.id):
+    if not await get_anket(message.from_user.id):
+        await state.clear()
+        await state.set_state(RegistrationSteps.start)
         await message.answer('добро пожаловать в клуб знакомств шизоцелов!', reply_markup=start_bot_kb())
     else:
-        pass
+        await menu(message, state)
 
 
 @router.message(Command('menu'))
@@ -75,16 +77,28 @@ async def menu(message: Message, state: FSMContext) -> None:
                              reply_markup=main_options_kb())
 
 
-@router.message(F.text == 'начать')
+# @router.message(Command('посмотреть'))
+# async def look(message: Message, state: FSMContext) -> None:
+#     # if await get_anket(message.from_user.id):
+#     #     await state.set_state(MainStates.option_selection)
+#     #     await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу',
+#     #                          reply_markup=main_options_kb())
+#     await message.answer(text='zxc')
+
+
+@router.message(F.text == 'начать', StateFilter(RegistrationSteps.start))
 async def age_request(message: Message, state: FSMContext) -> None:
+    if not message.from_user.username:
+        await message.answer(text='Сделайте доступным свой юзернейм и попробуйте снова')
+        return
     await state.set_state(RegistrationSteps.age_request)
     await message.answer('Сколько тебе лет?', reply_markup=ReplyKeyboardRemove())
 
 
 @router.message(StateFilter(RegistrationSteps.age_request))
 async def gender_request(message: Message, state: FSMContext) -> None:
-    if not message.text.strip().isdigit():
-        await message.answer('<b>Введите число!</b>')
+    if not message.text.strip().isdigit() or int(message.text) not in range(10, 100):
+        await message.answer('<b>Введите корректное число!</b>')
     else:
         await state.update_data(age=int(message.text.strip()))
         await state.set_state(RegistrationSteps.gender_request)
@@ -108,21 +122,17 @@ async def location_request(message: Message, state: FSMContext) -> None:
 @router.message(F.content_type.in_({'text', 'location'}), StateFilter(RegistrationSteps.location_request))
 async def name_request(message: Message, state: FSMContext) -> None:
     city_name = None
-    try:
-        if message.content_type == ContentType.LOCATION:
-            msg = await message.answer(text='<i>Идёт доксинг...</i>', reply_markup=ReplyKeyboardRemove())
-            latitude, longitude = message.location.latitude, message.location.longitude
-            city_name = await get_city_by_cords(latitude, longitude)
-            await msg.reply(text='<b>Успешно сватнул адрес!</b>')
-        elif message.text != 'пропустить ⏩':
-            msg = await message.answer(text='<i>Идёт доксинг...</i>', reply_markup=ReplyKeyboardRemove())
-            city_name = await get_city_by_name(message.text.strip())
-            await msg.reply(text='<b>Пополнил базы osint ботов!</b>')
-        await state.update_data(city=city_name) 
-    except Exception as ex:
-        logging.error(ex)
-        await state.update_data(city=None)
-        await message.answer(text='Что-то пошло не так, будем считать что нет у тебя города.')
+    if message.content_type == ContentType.LOCATION:
+        msg = await message.answer(text='<i>Идёт доксинг...</i>', reply_markup=ReplyKeyboardRemove())
+        latitude, longitude = message.location.latitude, message.location.longitude
+        city_name = await get_city_by_cords(latitude, longitude)
+        await msg.reply(text='<b>Успешно сватнул адрес!</b>') if city_name else await message.answer(text='Что-то пошло не так, будем считать что у тебя нет города.')
+
+    elif message.text != 'пропустить ⏩':
+        msg = await message.answer(text='<i>Идёт доксинг...</i>', reply_markup=ReplyKeyboardRemove())
+        city_name = await get_city_by_name(message.text.strip())
+        await msg.reply(text='<b>Пополнил базы osint ботов!</b>') if city_name else await message.answer(text='Что-то пошло не так, будем считать что у тебя нет города.')
+    await state.update_data(city=city_name) 
 
     await state.set_state(RegistrationSteps.name_request)
     await message.answer(text='Как мне к тебе обращаться?', reply_markup=ReplyKeyboardRemove())
@@ -146,7 +156,6 @@ async def media_request(message: Message, state: FSMContext) -> None:
 async def media_confirmation(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     if message.content_type == ContentType.VIDEO and not data.get('media'):
-        print(message.video[-1].file_id)
         await state.update_data(media=message.video[-1].file_id, video=True)
         await anket_confirmation(message=message, state=state)
     elif message.content_type == ContentType.PHOTO:
@@ -185,7 +194,7 @@ async def anket_confirmation(message: Message, state: FSMContext) -> None:
 async def anket_saving(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     status = message.text == 'Да'
-    await add_anket(tg_id=message.from_user.id, name=data['name'], age=data['age'], gender=data['gender'],
+    await add_anket(tg_id=message.from_user.id, name=data['name'], username=message.from_user.username, age=data['age'], gender=data['gender'],
                     interest=data['interest'], city=data['city'], description=data['description'], status=status)
     await add_media(tg_id=message.from_user.id, media=data['media'], is_video=data['video'])
     await state.clear()
@@ -196,46 +205,53 @@ async def anket_saving(message: Message, state: FSMContext) -> None:
 
 @router.message(F.text.in_(('2', '3', '4')), StateFilter(MainStates.edit_anket_or_start))
 async def main_options(message: Message, state: FSMContext) -> None:
-    if message.text == '1🚀':
-        data = await state.get_data()
-        await change_anket_status(message.from_user.id, True)
+    match message.text:
+        case '1🚀':
+            data = await state.get_data()
+            await change_anket_status(message.from_user.id, True)
 
-        if 'queue' not in data.keys():
-            ankets_queue = await get_ankets_queue(message.from_user.id, 2, 0)
-            if not ankets_queue:
-                await message.answer('Не нашёл подходящих анкет')
-                await message.answer('1. Смотреть анкеты.\n2. Заполнить анкету заново.\n3. '
-                                     'Изменить фото/видео.\n4. Изменить текст анкеты.',
-                                     reply_markup=main_options_kb())
-            else:
-                await state.update_data(queue=iter(ankets_queue), offset=0)
-                await state.set_state(MainStates.search)
-                await show_next_anket(message, state)
-    if message.text == '2':
-        await age_request(message=message, state=state)
+            if 'queue' not in data.keys():
+                ankets_queue = await get_ankets_queue(message.from_user.id, 2, 0)
+                if not ankets_queue:
+                    await message.answer('Не нашёл подходящих анкет')
+                    await message.answer('1. Смотреть анкеты.\n2. Заполнить анкету заново.\n3. '
+                                        'Изменить фото/видео.\n4. Изменить текст анкеты.',
+                                        reply_markup=main_options_kb())
+                else:
+                    await state.update_data(queue=iter(ankets_queue), offset=0)
+                    await state.set_state(MainStates.search)
+                    await show_next_anket(message, state)
+
+        case '2':
+            await age_request(message=message, state=state)
 
 
 
-@router.message(F.text.in_(('1🚀')), StateFilter(MainStates.option_selection, MainStates.edit_anket_or_start))
+@router.message(F.text.in_(('1🚀', '2', '3', '4')), StateFilter(MainStates.option_selection, MainStates.edit_anket_or_start))
 async def start_search(message: Message, state: FSMContext) -> None:
-    if message.text == '1🚀':
-        data = await state.get_data()
-        await change_anket_status(message.from_user.id, True)
+    match message.text:
+        case '1🚀':
+            data = await state.get_data()
+            await change_anket_status(message.from_user.id, True)
 
-        if 'queue' not in data.keys():
-            ankets_queue = await get_ankets_queue(message.from_user.id, 2, 0)
-            if not ankets_queue:
-                await message.answer('Не нашёл подходящих анкет')
-                await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу',
-                                     reply_markup=main_options_kb())
-            else:
-                await state.update_data(queue=iter(ankets_queue), offset=0)
-                await state.set_state(MainStates.search)
-                await message.answer('🔎✨', reply_markup=search_kb())
-                await show_next_anket(message, state)
-                
-    if message.text == '2':
-        await age_request(message=message, state=state)
+            if 'queue' not in data.keys():
+                ankets_queue = await get_ankets_queue(message.from_user.id, 2, 0)
+                if not ankets_queue:
+                    await message.answer('Не нашёл подходящих анкет')
+                    await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу',
+                                        reply_markup=main_options_kb())
+                else:
+                    await state.update_data(queue=iter(ankets_queue), offset=0)
+                    await state.set_state(MainStates.search)
+                    await message.answer('🔎✨', reply_markup=search_kb())
+                    await show_next_anket(message, state)
+
+        case'2':
+            await state.set_state(MainStates.edit_anket_or_start)
+            await message.answer(text='Так выглядит твоя анкета:')
+            await render_anket(message.from_user.id, message)
+            await message.answer(await message.answer('1. Смотреть анкеты.\n2. Заполнить анкету заново.\n3. Изменить фото/видео.\n4. Изменить текст анкеты.',
+                                 reply_markup=main_options_kb()))
 
 
 
@@ -250,7 +266,7 @@ async def search(message: Message, state: FSMContext, bot: Bot) -> None:
                 await save_like(message.from_user.id, data['processing'])
                 await show_next_anket(message, state)
         case '💌':
-            await message.answer('Напиши сообщение для этого пользователя')
+            await message.answer('Напиши сообщение для этого пользователя', reply_markup=back_kb())
             await state.set_state(MainStates.message_request)
         case '💤':
             await state.set_state(MainStates.option_selection)
@@ -259,17 +275,54 @@ async def search(message: Message, state: FSMContext, bot: Bot) -> None:
                                  reply_markup=main_options_kb())
 
 
-
-@router.message(F.text == 'посмотреть', StateFilter(MainStates.search, MainStates.option_selection))
+@router.message(F.text == 'посмотреть')
 async def search(message: Message, state: FSMContext) -> None:
+    # current_state = await state.get_state()
+    # if current_state not in (MainStates.search, MainStates.option_selection):
+    #     # print(current_state)
+    #     return
     likes = await get_likes(message.from_user.id)
     like = likes.pop(0)
-    anket = await get_anket(like.sender)
-
+    await message.answer(text='🔎📑', reply_markup=likes_dislike_kb())
     pre_text = 'Кому-то понравилась твоя анкета'
     pre_text += f'(и ещё {len(likes)})\n\n' if likes else '\n\n'
-    after_text = 
-    await render_anket(anket.sender, message, pre_text)
+    after_text = f'\n\nСообщение для тебя:\n{like.message}' if like.message else ''
+    await render_anket(like.sender, message, pre_text, after_text)
     await state.update_data(processing=like)
     await state.set_state(MainStates.likes_answer)
-    await state.update_data(likes=iter(likes))
+    await state.update_data(likes=iter(likes), count=len(likes))
+
+
+
+@router.message(F.text.in_(('❤️', '👎')), StateFilter(MainStates.likes_answer))
+async def like_answer(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    if message.text == '❤️':
+        anket = await get_anket(data['processing'].sender)
+        await message.answer(text=f'Отлично, начинай общаться с <a href="https://t.me/{anket.username}">{anket.name}</a>.',
+                             disable_web_page_preview=True)
+
+    await remove_like(data['processing'])
+
+    try:
+        likes = data['likes']
+        like = next(likes)
+        pre_text = 'Кому-то понравилась твоя анкета'
+        pre_text += f'(и ещё {data['count'] - 1})\n\n' if data['count'] >= 2 else '\n\n'
+        after_text = f'\n\nСообщение для тебя:\n{like.message}' if like.message else ''
+        await state.update_data(count=data['count'] - 1, processing=like)
+        await render_anket(like.sender, message, pre_text, after_text)
+
+    except StopIteration:
+        await state.set_state(MainStates.option_selection)
+        await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу',
+                             reply_markup=main_options_kb())
+
+
+@router.message(F.text, StateFilter(MainStates.message_request))
+async def message_request(message: Message, state: FSMContext) -> None:
+    if message.text == 'назад':
+        data = await state.get_data()
+        await state.set_state(MainStates.search)
+        await message.answer(text='🔎✨', reply_markup=search_kb())
+        await render_anket(data['processing'], message)

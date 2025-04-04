@@ -10,9 +10,9 @@ from datetime import date
 
 
 @async_connection
-async def add_anket(session: AsyncSession, tg_id: int, name: str, age: int, gender: bool, interest: int,
+async def add_anket(session: AsyncSession, tg_id: int, name: str, username: str, age: int, gender: bool, interest: int,
                     city: str, description: str, status: bool) -> None:
-    anket = Anket(id=tg_id, name=name, age=age, male=gender, interest=interest, city=city,
+    anket = Anket(id=tg_id, name=name, username=username, age=age, male=gender, interest=interest, city=city,
                   description=description, active=status)
     await session.merge(anket)
     await session.commit()
@@ -88,3 +88,9 @@ async def save_like(session: AsyncSession, user_id: int, anket_id: int, message:
 async def get_likes(session: AsyncSession, tg_id: int) -> List[Like]:
     result = await session.execute(select(Like).where(Like.recipient == tg_id))
     return list(result.scalars())
+
+
+@async_connection
+async def remove_like(session: AsyncSession, like: Like) -> None:
+    await session.delete(like)
+    await session.commit()

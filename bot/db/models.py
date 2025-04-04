@@ -11,6 +11,7 @@ class Anket(Base):
     __tablename__ = 'ankets'
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     name: Mapped[str] = mapped_column(String(32), nullable=False)
+    username: Mapped[str] = mapped_column(String(34), nullable=False)
     age: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     male: Mapped[bool] = mapped_column(Boolean, nullable=False)
     interest: Mapped[int] = mapped_column(SmallInteger, nullable=False)

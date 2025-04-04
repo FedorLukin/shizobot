@@ -2,6 +2,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class RegistrationSteps(StatesGroup):
+    start = State()
     age_request = State()
     gender_request = State()
     interest_request = State()
