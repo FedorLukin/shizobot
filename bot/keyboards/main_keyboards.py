@@ -82,6 +82,17 @@ def back_kb() -> ReplyKeyboardMarkup:
     kb.add(KeyboardButton(text='назад'))
     return kb.as_markup(resize_keyboard=True)
 
-# def main_options_kb() -> ReplyKeyboardMarkup:
-#     kb = ReplyKeyboardBuilder()
-#     kb.add(KeyboardButton(text='1. Смотреть анеты'))
+
+def turn_anket_off_kb() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardBuilder()
+    kb.add(KeyboardButton(text='отключить анкету 😴'))
+    kb.add(KeyboardButton(text='назад'))
+    kb.adjust(1)
+    return kb.as_markup(resize_keyboard=True)
+
+
+def turn_anket_on_kb() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardBuilder()
+    kb.add(KeyboardButton(text='включить анкету'))
+    kb.adjust(1)
+    return kb.as_markup(resize_keyboard=True)

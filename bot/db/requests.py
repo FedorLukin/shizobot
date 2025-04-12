@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from sqlalchemy import select, exists, delete, case
+from sqlalchemy import select, exists, delete, case, and_
 import pdb
 from .database import async_connection
 from .models import Anket, MediaFile, Like
@@ -10,9 +10,9 @@ from datetime import date
 
 
 @async_connection
-async def add_anket(session: AsyncSession, tg_id: int, name: str, username: str, age: int, gender: bool, interest: int,
+async def add_anket(session: AsyncSession, tg_id: int, name: str, age: int, gender: bool, interest: int,
                     city: str, description: str, status: bool) -> None:
-    anket = Anket(id=tg_id, name=name, username=username, age=age, male=gender, interest=interest, city=city,
+    anket = Anket(id=tg_id, name=name, age=age, male=gender, interest=interest, city=city,
                   description=description, active=status)
     await session.merge(anket)
     await session.commit()
@@ -42,7 +42,6 @@ async def change_anket_status(session: AsyncSession, tg_id: int, status: bool) -
 
 @async_connection
 async def get_ankets_queue(session: AsyncSession, tg_id: int, dt: int, n: int):
-    # Упорядочиваем по соответствию значению
     usr = await session.scalar(select(Anket).filter_by(id=tg_id))
     intr = (False, True,) if usr.interest == 2 else (bool(usr.interest),)
     result = await session.execute(
@@ -66,9 +65,13 @@ async def get_anket(session: AsyncSession, tg_id: int) -> Anket | None:
 
 
 @async_connection
+async def get_name(session: AsyncSession, tg_id: int) -> Anket | None:
+    return await session.scalar(select(Anket.name).filter_by(id=tg_id))
+
+
+@async_connection
 async def check_anket_status(session: AsyncSession, tg_id: int) -> Anket | None:
     return await session.scalar(select(Anket.active).filter_by(id=tg_id))
-
 
 
 @async_connection
@@ -78,15 +81,29 @@ async def get_media(session: AsyncSession, tg_id: int) -> Anket | None:
 
 
 @async_connection
-async def save_like(session: AsyncSession, user_id: int, anket_id: int, message: str = None) -> None:
-    like = Like(sender=user_id, recipient=anket_id, message=message)
-    session.add(like)
+async def save_like(session: AsyncSession, user_id: int, username: str, anket_id: int, message: str = None) -> None:
+    like = await session.scalar(select(Like).where(Like.sender_id == user_id, Like.recipient_id == anket_id))
+    old_like = bool(like)
+    if old_like:
+        like.sender_username = username
+        like.message = message
+    else:
+        like = Like(sender_id=user_id, sender_username=username, recipient_id=anket_id, message=message)
+    await session.merge(like)
     await session.commit()
+    return old_like
 
 
 @async_connection
 async def get_likes(session: AsyncSession, tg_id: int) -> List[Like]:
-    result = await session.execute(select(Like).where(Like.recipient == tg_id))
+    result = await session.execute(
+        select(Like)
+        .join(Anket, Like.sender_id == Anket.id)  # Соединяем таблицы
+        .where(
+            Like.recipient_id == tg_id,  # Условие на recipient_id
+            Anket.active == True  # Условие на активность анкеты
+        )
+    )
     return list(result.scalars())
 
 

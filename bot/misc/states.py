@@ -20,3 +20,5 @@ class MainStates(StatesGroup):
     search = State()
     message_request = State()
     likes_answer = State()
+    anket_state_switch = State()
+    inactive = State()
