@@ -34,3 +34,8 @@ class Like(Base):
     sender_username: Mapped[str] = mapped_column(String(34), nullable=False)
     recipient_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=True)
+
+
+class Admin(Base):
+    __tablename__ = 'admins'
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)

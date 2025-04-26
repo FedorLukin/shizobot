@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from sqlalchemy import select, exists, delete, case, and_
+from sqlalchemy import select, exists, delete, case, and_, func
 import pdb
 from .database import async_connection
 from .models import Anket, MediaFile, Like
@@ -34,6 +34,14 @@ async def change_anket_status(session: AsyncSession, tg_id: int, status: bool) -
     await session.merge(user)
     await session.commit()
 
+
+@async_connection
+async def change_anket_description(session: AsyncSession, tg_id: int, text: str) -> None:
+    user = await session.scalar(select(Anket).filter_by(id=tg_id))
+    user.description = text
+    await session.merge(user)
+    await session.commit()
+
 # @async_connection
 # async def delete_user_media(session: AsyncSession, tg_id: int) -> None:
 #     Files = await session.execute(select(MediaFile).where(MediaFile.user == tg_id))
@@ -41,18 +49,23 @@ async def change_anket_status(session: AsyncSession, tg_id: int, status: bool) -
 #     await session.commit()
 
 @async_connection
-async def get_ankets_queue(session: AsyncSession, tg_id: int, dt: int, n: int):
+async def get_ankets_queue(session: AsyncSession, tg_id: int, n: int) -> List[int]:
     usr = await session.scalar(select(Anket).filter_by(id=tg_id))
     intr = (False, True,) if usr.interest == 2 else (bool(usr.interest),)
     result = await session.execute(
         select(Anket.id)
         .where(
             Anket.id != tg_id,
-            Anket.age.in_(range(usr.age - dt, usr.age + dt)),
             Anket.male.in_(intr),
             Anket.active == True
         )
-        .order_by(case((Anket.city == usr.city, 0), else_=1))
+        .order_by(
+            case(
+                (Anket.city == usr.city, 0),
+                else_=1
+            ),
+            func.abs(Anket.age - usr.age)
+            )
         .offset(n * 20)
         .limit(20)
     )
@@ -98,10 +111,10 @@ async def save_like(session: AsyncSession, user_id: int, username: str, anket_id
 async def get_likes(session: AsyncSession, tg_id: int) -> List[Like]:
     result = await session.execute(
         select(Like)
-        .join(Anket, Like.sender_id == Anket.id)  # Соединяем таблицы
+        .join(Anket, Like.sender_id == Anket.id)
         .where(
-            Like.recipient_id == tg_id,  # Условие на recipient_id
-            Anket.active == True  # Условие на активность анкеты
+            Like.recipient_id == tg_id,
+            Anket.active == True
         )
     )
     return list(result.scalars())
@@ -111,3 +124,8 @@ async def get_likes(session: AsyncSession, tg_id: int) -> List[Like]:
 async def remove_like(session: AsyncSession, like: Like) -> None:
     await session.delete(like)
     await session.commit()
+
+
+@async_connection
+async def is_admin(session: AsyncSession, tg_id: int) -> None:
+    return await session.scalar(select(Anket).filter_by(id=tg_id))

@@ -34,14 +34,14 @@ def location_request_kb() -> ReplyKeyboardMarkup:
 
 def add_photo_confirmation_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
-    kb.add(KeyboardButton(text='Это все, сохранить фото'))
+    kb.add(KeyboardButton(text='это все, сохранить фото'))
     return kb.as_markup(resize_keyboard=True)
 
 
 def anket_confirmation_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
-    kb.add(KeyboardButton(text='Да'))
-    kb.add(KeyboardButton(text='Изменить анкету'))
+    kb.add(KeyboardButton(text='да'))
+    kb.add(KeyboardButton(text='изменить анкету'))
     kb.adjust(1)
     return kb.as_markup(resize_keyboard=True)
 
@@ -94,5 +94,12 @@ def turn_anket_off_kb() -> ReplyKeyboardMarkup:
 def turn_anket_on_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.add(KeyboardButton(text='включить анкету'))
+    kb.adjust(1)
+    return kb.as_markup(resize_keyboard=True)
+
+
+def subscribe_confirm() -> ReplyKeyboardMarkup:
+    kb = ReplyKeyboardBuilder()
+    kb.add(KeyboardButton(text='я подписался'))
     kb.adjust(1)
     return kb.as_markup(resize_keyboard=True)

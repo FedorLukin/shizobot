@@ -12,9 +12,6 @@ from dotenv import dotenv_values
 errors_cache = TTLCache(maxsize=30, ttl=120)
 
 
-# print(get_city_by_name('Крансоярск'))
-# print(get_city_by_cords('56.863477', '61.055573'))
-# exit(0)
 async def start_bot() -> None:
     env_vars = dotenv_values(".env")
     devs_ids = list(map(int, env_vars['DEVELOPERS_IDS'].split(',')))

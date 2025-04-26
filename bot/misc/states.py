@@ -22,3 +22,10 @@ class MainStates(StatesGroup):
     likes_answer = State()
     anket_state_switch = State()
     inactive = State()
+    subscription_check = State()
+    description_edit = State()
+
+
+class AdminPanelStates(StatesGroup):
+    message_request = State()
+    notification_start = State()
