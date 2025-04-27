@@ -456,7 +456,7 @@ async def anket_state_switch(message: Message, state: FSMContext) -> None:
 
 
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=KICKED))
-async def process_user_blocked_bot(event: ChatMemberUpdated):
+async def process_user_blocked_bot(event: ChatMemberUpdated) -> None:
     """Отключение анкеты при блокировке бота"""
     """
     Удаляет пользователя из базы данных, когда пользователь блокирует бота.

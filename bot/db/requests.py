@@ -22,7 +22,6 @@ async def add_anket(session: AsyncSession, tg_id: int, name: str, age: int, gend
 async def add_media(session: AsyncSession, tg_id: int, media: List[str], is_video: bool) -> None:
     await session.execute(delete(MediaFile).where(MediaFile.user == tg_id))
     files_to_save = [MediaFile(user=tg_id, file=file_id, video=is_video) for file_id in media]
-    # await session.delete(files_to_delete)
     session.add_all(files_to_save)
     await session.commit()
 
@@ -42,11 +41,6 @@ async def change_anket_description(session: AsyncSession, tg_id: int, text: str)
     await session.merge(user)
     await session.commit()
 
-# @async_connection
-# async def delete_user_media(session: AsyncSession, tg_id: int) -> None:
-#     Files = await session.execute(select(MediaFile).where(MediaFile.user == tg_id))
-#     await session.delete(Files)
-#     await session.commit()
 
 @async_connection
 async def get_ankets_queue(session: AsyncSession, tg_id: int, n: int) -> List[int]:
@@ -90,7 +84,7 @@ async def check_anket_status(session: AsyncSession, tg_id: int) -> Anket | None:
 @async_connection
 async def get_media(session: AsyncSession, tg_id: int) -> Anket | None:
     result = await session.execute(select(MediaFile).where(MediaFile.user == tg_id))
-    return list(result.scalars())
+    return result.scalars().all()
 
 
 @async_connection
