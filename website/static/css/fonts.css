@@ -1,0 +1,20 @@
+@font-face { 
+    font-family: "Roboto";
+    src: url('../fonts/roboto/Roboto-Regular.ttf') format('truetype'),
+         url('../fonts/roboto/Roboto-Regular.woff2') format('woff2'),
+         url('../fonts/roboto/Roboto-Regular.woff') format('woff'),
+         url('../fonts/roboto/Roboto-Regular.eot') format('embedded-opentype');
+    font-style: normal; 
+    font-weight: normal; 
+}
+
+
+@font-face { 
+    font-family: "Roboto-SemiBold";
+    src: url('../fonts/roboto/Roboto-SemiBold.ttf') format('truetype'),
+         url('../fonts/roboto/Roboto-SemiBold.woff2') format('woff2'),
+         url('../fonts/roboto/Roboto-SemiBold.woff') format('woff'),
+         url('../fonts/roboto/Roboto-SemiBold.eot') format('embedded-opentype');
+    font-style: normal; 
+    font-weight: normal; 
+  }
