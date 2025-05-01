@@ -30,9 +30,10 @@ async def add_media(session: AsyncSession, tg_id: int, media: List[str], is_vide
 @async_connection
 async def change_anket_status(session: AsyncSession, tg_id: int, status: bool) -> None:
     user = await session.scalar(select(Anket).filter_by(id=tg_id))
-    user.active = status
-    await session.merge(user)
-    await session.commit()
+    if user:
+        user.active = status
+        await session.merge(user)
+        await session.commit()
 
 
 @async_connection

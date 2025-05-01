@@ -1,24 +1,17 @@
-from aiogram.fsm.context import FSMContext
-# from aiogram.dispatcher import StorageKey
-
-from aiogram.filters import ChatMemberUpdatedFilter, LEFT, StateFilter, Command, KICKED
-from aiogram.types import CallbackQuery, Message, ChatMemberUpdated, ReplyKeyboardRemove, Location, ContentType
-from aiogram import Router, F, Bot
 from aiogram.utils.media_group import MediaGroupBuilder
-from bot.keyboards.main_keyboards import *
+from aiogram.fsm.context import FSMContext
+from aiogram.filters import ChatMemberUpdatedFilter, StateFilter, Command, KICKED
+from aiogram.types import Message, ChatMemberUpdated, ReplyKeyboardRemove, ContentType
+from aiogram import Router, F, Bot
+
 from bot.keyboards.admin_panel_keyboards import *
-from bot.middlewares.throttling_middleware import ThrottlingMiddleware
-from bot.db.requests import *
-from bot.misc.states import RegistrationSteps, MainStates
+from bot.keyboards.main_keyboards import *
 from bot.misc.gecoder import get_city_by_name, get_city_by_cords
-# from bot.create_bot import dp
-import logging
-import datetime as dt
-from typing import Iterator
+from bot.misc.states import RegistrationSteps, MainStates
+from bot.db.requests import *
 
 
 router = Router()
-router.message.middleware(ThrottlingMiddleware())
 
 
 async def start_search(message: Message, state: FSMContext) -> None:
@@ -455,13 +448,4 @@ async def anket_state_switch(message: Message, state: FSMContext) -> None:
 @router.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=KICKED))
 async def process_user_blocked_bot(event: ChatMemberUpdated) -> None:
     """Отключение анкеты при блокировке бота"""
-    """
-    Удаляет пользователя из базы данных, когда пользователь блокирует бота.
-
-    Аргументы:
-        event (ChatMemberUpdated): Событие обновления статуса пользователя.
-
-    Возвращает:
-        None: Функция ничего не возвращает.
-    """
     await change_anket_status(tg_id=event.from_user.id, status=False)

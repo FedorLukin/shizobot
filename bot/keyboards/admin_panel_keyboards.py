@@ -1,11 +1,8 @@
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from dotenv import dotenv_values
-
 
 def admin_panel_kb() -> InlineKeyboardMarkup:
-    env_vars = dotenv_values(".env")
     kb = InlineKeyboardBuilder()
     kb.button(text='запустить рассылку ✉️', callback_data='start_notification')
     kb.button(text='статистика 📊', callback_data='stats')
