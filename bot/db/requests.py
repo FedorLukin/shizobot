@@ -12,6 +12,7 @@ from datetime import date
 @async_connection
 async def add_anket(session: AsyncSession, tg_id: int, name: str, age: int, gender: bool, interest: int,
                     city: str, description: str, status: bool) -> None:
+    print(tg_id, name, age, gender, interest, city, description, sep='\n')
     anket = Anket(id=tg_id, name=name, age=age, male=gender, interest=interest, city=city,
                   description=description, active=status)
     await session.merge(anket)
@@ -67,28 +68,39 @@ async def get_ankets_queue(session: AsyncSession, tg_id: int, n: int) -> List[in
 
 
 @async_connection
+async def get_users(session: AsyncSession) -> List[int]:
+    result = await session.execute(select(Anket.id))
+    return result.scalars().all()
+
+@async_connection
 async def get_anket(session: AsyncSession, tg_id: int) -> Anket | None:
     return await session.scalar(select(Anket).filter_by(id=tg_id))
 
 
 @async_connection
-async def get_name(session: AsyncSession, tg_id: int) -> Anket | None:
+async def get_name(session: AsyncSession, tg_id: int) -> str:
     return await session.scalar(select(Anket.name).filter_by(id=tg_id))
 
 
 @async_connection
-async def check_anket_status(session: AsyncSession, tg_id: int) -> Anket | None:
+async def check_anket_status(session: AsyncSession, tg_id: int) -> bool:
     return await session.scalar(select(Anket.active).filter_by(id=tg_id))
 
 
 @async_connection
-async def get_media(session: AsyncSession, tg_id: int) -> Anket | None:
+async def get_media(session: AsyncSession, tg_id: int) -> List[MediaFile] | None:
     result = await session.execute(select(MediaFile).where(MediaFile.user == tg_id))
     return result.scalars().all()
 
 
 @async_connection
-async def save_like(session: AsyncSession, user_id: int, username: str, anket_id: int, message: str = None) -> None:
+async def get_ankets_data(session: AsyncSession) -> List[Tuple]:
+    result = await session.execute(select(Anket.male, Anket.age, Anket.city, Anket.active))
+    return result.all()
+
+
+@async_connection
+async def save_like(session: AsyncSession, user_id: int, username: str, anket_id: int, message: str = None) -> bool:
     like = await session.scalar(select(Like).where(Like.sender_id == user_id, Like.recipient_id == anket_id))
     old_like = bool(like)
     if old_like:

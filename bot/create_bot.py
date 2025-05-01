@@ -10,4 +10,4 @@ from aiogram.enums import ParseMode
 bot = Bot(env_vars['BOT_TOKEN'], default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
-dp.include_routers(main_handlers.router, admin_panel.router)
+dp.include_routers(admin_panel.router, main_handlers.router)

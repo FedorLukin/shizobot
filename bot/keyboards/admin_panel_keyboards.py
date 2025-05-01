@@ -9,6 +9,7 @@ def admin_panel_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text='запустить рассылку ✉️', callback_data='start_notification')
     kb.button(text='статистика 📊', callback_data='stats')
+    kb.adjust(1)
     return kb.as_markup(resize_keyboard=True)
 
 

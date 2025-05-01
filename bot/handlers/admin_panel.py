@@ -1,7 +1,7 @@
 from aiogram.utils.media_group import MediaGroupBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramForbiddenError
-from aiogram.filters import StateFilter
+from aiogram.filters import StateFilter, Command
 from aiogram.types import CallbackQuery, Message, ContentType
 from aiogram import Bot, Router, F
 
@@ -12,9 +12,9 @@ from bot.middlewares.admin_filter import AdminAccessMiddleware
 
 from bot.misc.states import AdminPanelStates
 
-from bot.db.requests import get_users, delete_user, get_rates, set_rate, get_orders
-from bot.db.requests import get_products_list, set_product_status, get_product_status
-
+# from bot.db.requests import get_users, delete_user, get_rates, set_rate, get_orders
+# from bot.db.requests import get_products_list, set_product_status, get_product_status
+from bot.db.requests import *
 import logging
 import datetime as dt
 import asyncio
@@ -23,6 +23,13 @@ router = Router()
 router.message.middleware(AdminAccessMiddleware())
 router.message.middleware(AlbumMiddleware())
 router.callback_query.middleware(AdminAccessMiddleware())
+
+
+
+@router.message(Command('admin'))
+async def admin(message: Message) -> None:
+    await message.answer(text=f'Здравствуйте, {message.from_user.first_name}! Вы являетесь администратором '
+                              f'данного бота и можете воспользоваться админ-панелью', reply_markup=admin_panel_kb())
 
 
 @router.message(F.text == 'админ-панель 🔐')
@@ -124,47 +131,9 @@ async def notifaction_start(callback: CallbackQuery, state: FSMContext, bot: Bot
     await msg.edit_text(text='Рассылка завершена✅')
 
 
-@router.callback_query(F.data == 'change_rates')
-async def rates_changing(callback: CallbackQuery, state: FSMContext) -> None:
-    k1, k2 = await get_rates()
-    await state.update_data(rate1=k1, rate2=k2)
-    await callback.message.edit_text(text=f'<b><i>Текущий курс:</i></b>\nдо 2000: <i>{k1}₽</i>\nот 2000: <i>{k2}₽</i>',
-                                     reply_markup=rate_choice_kb())
-
-
-@router.callback_query(F.data.startswith('rate'))
-async def edit_rate(callback: CallbackQuery, state: FSMContext) -> None:
-    ind = int(callback.data[-1])
-    rates_data = await state.get_data()
-    await state.update_data(rate_ind=ind)
-    await callback.message.edit_text(text='<i>Введите новое значение</i>',
-                                     reply_markup=rate_edit_kb(f'{rates_data.get(callback.data):.2f}'))
-
-
 @router.callback_query(F.data == 'stats')
 async def get_stats(callback: CallbackQuery) -> None:
-    yesterday = dt.datetime.today() - dt.timedelta(days=1)
-    last_orders, all_orders = await get_orders(yesterday)
-    users = await get_users()
-    await callback.message.edit_text(text=f'<b><i>Статистика бота:</i></b>\nЗаказов за последние сутки: <b>'
-                                          f'{len(last_orders)}</b>\n<i>На сумму:</i> <b>{sum(last_orders)}₽</b>\n'
-                                          f'\nЗаказов всего: <b>{len(all_orders)}</b>\n<i>На сумму:</i> <b>'
-                                          f'{sum(all_orders)}₽</b>\n\nКоличество пользователей: <b>{len(users)}</b>',
-                                     reply_markup=back_to_admin_kb())
-
-
-@router.callback_query(F.data == 'products_statuses')
-async def products_list(callback: CallbackQuery, state: FSMContext) -> None:
-    products_list = await get_products_list()
-    await callback.message.edit_text(text='<i>Выберите товар, статус которого желаете изменить:</i>',
-                                     reply_markup=products_statuses_change(products_list))
-
-
-@router.callback_query(F.data.startswith('status_change'))
-async def product_status_change(callback: CallbackQuery, state: FSMContext) -> None:
-    product_name = callback.data.split('=')[1]
-    status = not await get_product_status(product_name=product_name)
-    await set_product_status(product_name=product_name, status=status)
-    products_list = await get_products_list()
-    await callback.message.edit_text(text='<i>Выберите товар, статус которого желаете изменить:</i>',
-                                     reply_markup=products_statuses_change(products_list))
+    ankets = await get_ankets_data()
+    ages = [anket[1] for anket in ankets]
+    middle_age = round(sum(ages) / len(ages))
+    await callback.message.answer(text=f'<b><i>Статистика пользователей бота:</i></b>\nВсего анкет: <b>{len(ankets)}</b>, из них <b>{sum(1 for anket in ankets if not anket[0])}</b> тянок и <b>{sum(1 for anket in ankets if anket[0])}</b> мужла\nАктивных анкет: <b>{sum(1 for anket in ankets if anket[3])}</b>, из них <b>{sum(1 for anket in ankets if not anket[0] and anket[3])}</b> тянок и <b>{sum(1 for anket in ankets if anket[0] and anket[3])}</b> мужла\nСредний возраст анкеты: <b>{middle_age}</b> лет\nКоличество уникальных указанных городов: <b>{len({anket[2] for anket in ankets if anket[2]})}</b>')

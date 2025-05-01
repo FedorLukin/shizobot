@@ -6,7 +6,8 @@ from aiogram.types import CallbackQuery, Message, ChatMemberUpdated, ReplyKeyboa
 from aiogram import Router, F, Bot
 from aiogram.utils.media_group import MediaGroupBuilder
 from bot.keyboards.main_keyboards import *
-# from bot.middlewares.throttling import ThrottlingMiddleware
+from bot.keyboards.admin_panel_keyboards import *
+from bot.middlewares.throttling_middleware import ThrottlingMiddleware
 from bot.db.requests import *
 from bot.misc.states import RegistrationSteps, MainStates
 from bot.misc.gecoder import get_city_by_name, get_city_by_cords
@@ -17,6 +18,7 @@ from typing import Iterator
 
 
 router = Router()
+router.message.middleware(ThrottlingMiddleware())
 
 
 async def start_search(message: Message, state: FSMContext) -> None:
@@ -81,9 +83,6 @@ async def get_anket_from_queue(tg_id: int, state: FSMContext) -> int | None:
 @router.message(Command('start'))
 async def start(message: Message, state: FSMContext) -> None:
     """Старт бота или вызов главного меню"""
-    if await is_admin(message.from_user.id):
-        await message.answer(text=f'Здравствуйте, {message.from_user.first_name}! Вы являетесь администратором '
-                                  f'данного бота и можете воспользоваться админ-панелью', reply_markup=admin_panels_kb(message.from_user.id))
     if not await get_anket(message.from_user.id):
         await state.clear()
         await state.set_state(RegistrationSteps.start)
@@ -142,7 +141,7 @@ async def location_request(message: Message, state: FSMContext) -> None:
 
 @router.message(F.content_type.in_({'text', 'location'}), StateFilter(RegistrationSteps.location_request))
 async def name_request(message: Message, state: FSMContext) -> None:
-    """Запрос имени"""
+    """Проверка города и запрос имени"""
     city_name = None
     if message.content_type == ContentType.LOCATION:
         msg = await message.answer(text='<i>Идёт доксинг...</i>', reply_markup=ReplyKeyboardRemove())
@@ -163,7 +162,7 @@ async def name_request(message: Message, state: FSMContext) -> None:
 @router.message(F.text, StateFilter(RegistrationSteps.name_request))
 async def description_request(message: Message, state: FSMContext) -> None:
     """Проверка валидности имени и запрос текста анкеты"""
-    if len(message.text) <= 64:
+    if len(message.text) <= 32:
         await state.update_data(name=message.text.strip())
         await state.set_state(RegistrationSteps.description_request)
         await message.answer(text='Красивое имя, у меня аж встал) Теперь расскажи о себе и желательно в деталях.')
@@ -203,7 +202,7 @@ async def media_confirmation(message: Message, state: FSMContext) -> None:
             await anket_confirmation(message=message, state=state)
 
     elif message.content_type == ContentType.TEXT:
-        if message.text == 'Это все, сохранить фото':
+        if message.text == 'это все, сохранить фото':
             if not data.get('editing_media'):
                 await state.update_data(video=False)
                 await anket_confirmation(message=message, state=state)
@@ -255,8 +254,8 @@ async def check_subscription(message: Message, state: FSMContext, bot: Bot):
         if member.status == 'left':
             await message.answer(text='Ну вот кому ты пиздишь? Ты чо, типа, самый умный?')
         else:
-            await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу', reply_markup=main_options_kb())
             await state.set_state(MainStates.option_selection)
+            await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу', reply_markup=main_options_kb())
 
 
 @router.message(F.text.in_(('1🚀', '2', '3', '4')), StateFilter(MainStates.edit_anket_or_start))
@@ -360,7 +359,7 @@ async def search(message: Message, state: FSMContext, bot: Bot) -> None:
         case '❤️': # лайк
             data = await state.get_data()
             if await check_anket_status(tg_id=data['processing']):
-                if await save_like(message.from_user.id, username=message.from_user.username, anket_id=data['processing']):
+                if not await save_like(message.from_user.id, username=message.from_user.username, anket_id=data['processing']):
                     await bot.send_message(chat_id=data['processing'], text='Кому-то понравилась твоя анкета', reply_markup=likes_watch_kb())
                 await show_next_anket(message, state)
 
@@ -382,13 +381,13 @@ async def search(message: Message, state: FSMContext) -> None:
     try:
         like = next(likes_queue)
         await message.answer(text='🔎📑', reply_markup=likes_dislike_kb())
-        pre_text = 'Кому-то понравилась твоя анкета'
-        pre_text += f'(и ещё {len(likes)})\n\n' if likes else '\n\n'
-        after_text = f'\n\nСообщение для тебя:\n{like.message}' if like.message else ''
+        pre_text = '<b>Кому-то понравилась твоя анкета</b>'
+        pre_text += f'(и ещё {len(likes) - 1})\n\n' if len(likes) > 1 else '\n\n'
+        after_text = f'\n\n💌 <b><i>Сообщение для тебя:</i></b>\n{like.message}' if like.message else ''
         await render_anket(like.sender_id, message, pre_text, after_text)
         await state.update_data(processing=like)
         await state.set_state(MainStates.likes_answer)
-        await state.update_data(likes=iter(likes), count=len(likes))
+        await state.update_data(likes=likes_queue, count=len(likes) - 1)
 
     except StopIteration:
         await message.answer(text='Уже неакутально 😔')
@@ -402,26 +401,24 @@ async def like_answer(message: Message, state: FSMContext, bot: Bot) -> None:
 
     if message.text == '❤️':
         anket = await get_anket(tg_id=data['processing'].sender_id)
-        await message.answer(text=f'Отлично, начинай общаться с <a href="https://t.me/{data['processing'].sender_username}">{anket.name}</a>.',
-                             disable_web_page_preview=True)
+        await message.answer(text=f'Отлично, начинай общаться с <a href="https://t.me/{data['processing'].sender_username}">{anket.name}</a>.', disable_web_page_preview=True)
         sender_name = await get_name(tg_id=message.from_user.id)
-        await bot.send_message(data['processing'].sender_id, text=f'Есть взаимная симпатия, начинай общаться с <a href="https://t.me/{message.from_user.username}">{sender_name}</a>.',
-                               disable_web_page_preview=True)
+        await bot.send_message(data['processing'].sender_id, text=f'Есть взаимная симпатия, начинай общаться с <a href="https://t.me/{message.from_user.username}">{sender_name}</a>.', reply_markup=call_menu_kb(), disable_web_page_preview=True)
 
     await remove_like(data['processing'])
 
     try:
-        likes = data['likes']
-        like = next(likes)
-        pre_text = 'Кому-то понравилась твоя анкета'
+        like = next(data['likes'])
+        pre_text = '<b>Кому-то понравилась твоя анкета</b>'
         pre_text += f'(и ещё {data['count'] - 1})\n\n' if data['count'] >= 2 else '\n\n'
-        after_text = f'\n\n💌 Сообщение для тебя:\n{like.message}' if like.message else ''
+        after_text = f'\n\n💌 <b><i>Сообщение для тебя:\n{like.message}</b></i>' if like.message else ''
         await state.update_data(count=data['count'] - 1, processing=like)
         await render_anket(like.sender_id, message, pre_text, after_text)
 
     except StopIteration:
-        await message.answer(text='Уже неакутально 😔')
-        await menu(message=message, state=state)
+        await state.clear()
+        await state.set_state(MainStates.option_selection)
+        await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу', reply_markup=main_options_kb())
 
 
 @router.message(F.text, StateFilter(MainStates.message_request))
@@ -435,7 +432,7 @@ async def message_request(message: Message, state: FSMContext, bot: Bot) -> None
         await render_anket(data['processing'], message)
 
     else:
-        if await save_like(message.from_user.id, message.from_user.username, data['processing'], message.text):
+        if not await save_like(message.from_user.id, message.from_user.username, data['processing'], message.text):
             await bot.send_message(chat_id=data['processing'], text='Кому-то понравилась твоя анкета', reply_markup=likes_watch_kb())
         await message.answer(text='Сообщение отправлено', reply_markup=search_kb())
         await state.set_state(MainStates.search)
