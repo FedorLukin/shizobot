@@ -252,6 +252,33 @@ nav a:hover {
         display: none;
     }
     .donations-title {
-        text-align: left;
+        margin-left: 3%;
+        margin-right: 3%;
+    }
+    .donations-title H1 {
+        margin-top: 15px;
+    }
+    .donations-title H2 {
+        margin-bottom: 15px;
+    }
+    .title H1 {
+        font-size: calc(42px + 12 * (100vw - 320px) / 880);
+    }
+    .title H3 {
+        font-size: calc(19px + 12 * (100vw - 320px) / 880);
+    }
+    .link { 
+        height: calc(30vw * 9 / 16 + 5vh);
+        margin-left: 3%;
+        margin-right: 3%;
+    }
+    .description H4 {
+        font-size: calc(17px + 12 * (100vw - 320px) / 880);
+    }
+    .description p {
+        margin-left: 8%;
+        margin-right: 8%;
+        font-family: 'Roboto-SemiBold';
+        font-size: calc(13px + 12 * (100vw - 320px) / 880);
     }
 }

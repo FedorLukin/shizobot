@@ -1,12 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
-from sqlalchemy import select, exists, delete, case, and_, func
-import pdb
+from sqlalchemy import select, delete, case, func
 from .database import async_connection
-from .models import Anket, MediaFile, Like
+from .models import Anket, MediaFile, Like, Admin
 
 from typing import List, Tuple
-from datetime import date
 
 
 @async_connection
@@ -71,6 +68,11 @@ async def get_ankets_queue(session: AsyncSession, tg_id: int, n: int) -> List[in
 @async_connection
 async def get_users(session: AsyncSession) -> List[int]:
     result = await session.execute(select(Anket.id))
+    return result.scalars().all()
+
+@async_connection
+async def get_admins(session: AsyncSession) -> List[int]:
+    result = await session.execute(select(Admin.id))
     return result.scalars().all()
 
 @async_connection
