@@ -368,7 +368,7 @@ async def search(message: Message, state: FSMContext, bot: Bot) -> None:
 
 
 @router.message(F.text == 'посмотреть')
-async def search(message: Message, state: FSMContext) -> None:
+async def start_like_answer(message: Message, state: FSMContext) -> None:
     """Просмотр анкет людей, которым понравился пользователь"""
     likes = await get_likes(message.from_user.id)
     likes_queue = iter(likes)
@@ -397,7 +397,9 @@ async def like_answer(message: Message, state: FSMContext, bot: Bot) -> None:
         anket = await get_anket(tg_id=data['processing'].sender_id)
         await message.answer(text=f'<b>Отлично, начинай общаться с </b><a href="https://t.me/{data['processing'].sender_username}">{anket.name}</a>.', disable_web_page_preview=True)
         sender_name = await get_name(tg_id=message.from_user.id)
-        await bot.send_message(data['processing'].sender_id, text=f'<b>Есть взаимная симпатия, начинай общаться с</b> <a href="https://t.me/{message.from_user.username}">{sender_name}</a>.', reply_markup=call_menu_kb(), disable_web_page_preview=True)
+        msg = await bot.send_message(data['processing'].sender_id, text=f'<b>Есть взаимная симпатия:</b>', reply_markup=call_menu_kb(), disable_web_page_preview=True)
+        await render_anket(anket_id=message.from_user.id, message=msg)
+        await bot.send_message(data['processing'].sender_id, text=f'<b>Начинай общаться с</b> <a href="https://t.me/{message.from_user.username}">{sender_name}</a>.', disable_web_page_preview=True)
 
     await remove_like(data['processing'])
 
