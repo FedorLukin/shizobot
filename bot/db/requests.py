@@ -57,8 +57,9 @@ async def get_ankets_queue(session: AsyncSession, tg_id: int, n: int) -> List[in
                 (Anket.city == usr.city, 0),
                 else_=1
             ),
-            func.abs(Anket.age - usr.age)
-            )
+            func.abs(Anket.age - usr.age),
+            Anket.id
+        )
         .offset(n * 20)
         .limit(20)
     )

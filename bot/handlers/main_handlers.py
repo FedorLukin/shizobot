@@ -1,5 +1,6 @@
 from aiogram.utils.media_group import MediaGroupBuilder
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import default_state
 from aiogram.filters import ChatMemberUpdatedFilter, StateFilter, Command, KICKED
 from aiogram.types import Message, ChatMemberUpdated, ReplyKeyboardRemove, ContentType
 from aiogram import Router, F, Bot
@@ -50,7 +51,7 @@ async def render_anket(anket_id, message: Message, pre_text='', after_text='') -
         for media in media_list:
             album_builder.add_photo(media=media.file)
         album = album_builder.build()
-        await message.answer_media_group(media=album, caption=anket_text, )
+        await message.answer_media_group(media=album, caption=anket_text)
 
 
 async def get_anket_from_queue(tg_id: int, state: FSMContext) -> int | None:
@@ -270,7 +271,6 @@ async def start_search_or_edit_anket(message: Message, state: FSMContext, bot: B
 
                 else:
                     ankets_queue = await get_ankets_queue(message.from_user.id, 0)
-
                     if not ankets_queue:
                         await message.answer('Не нашёл подходящих анкет')
                         await message.answer('1. Смотреть анкеты.\n2. Заполнить анкету заново.\n3. '
@@ -313,7 +313,7 @@ async def main_options(message: Message, state: FSMContext, bot: Bot) -> None:
             if member.status == 'left':
                 await state.set_state(MainStates.subscription_check)
                 await message.answer(text='Для использования бота необходимо быть подписанным на <a href="https://t.me/shizocells">канал</a>', reply_markup=subscribe_confirm())
-            
+
             else:
                 data = await state.get_data()
                 await change_anket_status(message.from_user.id, True)
@@ -340,7 +340,8 @@ async def main_options(message: Message, state: FSMContext, bot: Bot) -> None:
                                  reply_markup=turn_anket_off_kb())
 
         case '4': # донат
-            await message.answer(text='кидай бабки сюда: <code>1234567890</code>')
+            await state.clear()
+            await message.answer(text='кидай бабки сюда: <code>2204240158564544</code> озон банк\n', reply_markup=call_menu_kb())
 
 
 @router.message(F.text.in_(('❤️', '💌', '👎', '💤')), StateFilter(MainStates.search))
@@ -374,9 +375,9 @@ async def search(message: Message, state: FSMContext) -> None:
     try:
         like = next(likes_queue)
         await message.answer(text='🔎📑', reply_markup=likes_dislike_kb())
-        pre_text = '<b>Кому-то понравилась твоя анкета</b>'
+        pre_text = '<b>Кому-то понравилась твоя анкета:</b>'
         pre_text += f'(и ещё {len(likes) - 1})\n\n' if len(likes) > 1 else '\n\n'
-        after_text = f'\n\n💌 <b><i>Сообщение для тебя:</i></b>\n{like.message}' if like.message else ''
+        after_text = f'\n\n💌 <b>Сообщение для тебя:</b>\n{like.message}' if like.message else ''
         await render_anket(like.sender_id, message, pre_text, after_text)
         await state.update_data(processing=like)
         await state.set_state(MainStates.likes_answer)
@@ -394,9 +395,9 @@ async def like_answer(message: Message, state: FSMContext, bot: Bot) -> None:
 
     if message.text == '❤️':
         anket = await get_anket(tg_id=data['processing'].sender_id)
-        await message.answer(text=f'Отлично, начинай общаться с <a href="https://t.me/{data['processing'].sender_username}">{anket.name}</a>.', disable_web_page_preview=True)
+        await message.answer(text=f'<b>Отлично, начинай общаться с </b><a href="https://t.me/{data['processing'].sender_username}">{anket.name}</a>.', disable_web_page_preview=True)
         sender_name = await get_name(tg_id=message.from_user.id)
-        await bot.send_message(data['processing'].sender_id, text=f'Есть взаимная симпатия, начинай общаться с <a href="https://t.me/{message.from_user.username}">{sender_name}</a>.', reply_markup=call_menu_kb(), disable_web_page_preview=True)
+        await bot.send_message(data['processing'].sender_id, text=f'<b>Есть взаимная симпатия, начинай общаться с</b> <a href="https://t.me/{message.from_user.username}">{sender_name}</a>.', reply_markup=call_menu_kb(), disable_web_page_preview=True)
 
     await remove_like(data['processing'])
 
@@ -404,7 +405,7 @@ async def like_answer(message: Message, state: FSMContext, bot: Bot) -> None:
         like = next(data['likes'])
         pre_text = '<b>Кому-то понравилась твоя анкета</b>'
         pre_text += f'(и ещё {data['count'] - 1})\n\n' if data['count'] >= 2 else '\n\n'
-        after_text = f'\n\n💌 <b><i>Сообщение для тебя:\n{like.message}</b></i>' if like.message else ''
+        after_text = f'\n\n💌 <b>Сообщение для тебя:\n{like.message}</b>' if like.message else ''
         await state.update_data(count=data['count'] - 1, processing=like)
         await render_anket(like.sender_id, message, pre_text, after_text)
 
@@ -449,3 +450,9 @@ async def anket_state_switch(message: Message, state: FSMContext) -> None:
 async def process_user_blocked_bot(event: ChatMemberUpdated) -> None:
     """Отключение анкеты при блокировке бота"""
     await change_anket_status(tg_id=event.from_user.id, status=False)
+
+
+@router.message(F.text, StateFilter(default_state))
+async def spare_menu_call(message: Message, state: FSMContext):
+    """Вызов меню если состояние fsm не определено"""
+    await menu(message=message, state=state)

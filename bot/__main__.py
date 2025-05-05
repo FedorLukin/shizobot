@@ -1,14 +1,13 @@
 import logging
-import ssl
 from aiohttp import web
 
 from bot.db.requests import get_admins
 from bot.create_bot import bot, dp
 from bot.config import load_server_config
 
-from aiogram import Bot
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+from aiogram import Bot
 
 
 serv_conf = load_server_config()
@@ -29,7 +28,7 @@ async def on_shutdown(bot: Bot) -> None:
     admins_ids = await get_admins()
     for id in admins_ids:
         try:
-            await bot.send_message(chat_id=id, text='<b><i>Бот остановлен ❗️</i></b>')
+            await bot.send_message(chat_id=id, text='<b><i>Бот остановлен ❗</i></b>')
         except (TelegramForbiddenError, TelegramBadRequest):
             pass
 
@@ -45,9 +44,7 @@ def main() -> None:
     )
     webhook_requests_handler.register(app, path=serv_conf.webhook_path)
     setup_application(app, dp, bot=bot)
-    context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-    context.load_cert_chain(serv_conf.webhook_ssl_cert, serv_conf.webhook_ssl_priv)
-    web.run_app(app, host=serv_conf.web_server_host, port=serv_conf.web_server_port, ssl_context=context)
+    web.run_app(app, host=serv_conf.web_server_host, port=serv_conf.web_server_port)
 
 
 if __name__ == "__main__":
