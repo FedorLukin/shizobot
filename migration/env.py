@@ -6,11 +6,15 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from bot.db.models import *
 from alembic import context
-from bot.config import load_db_URL
+from decouple import config
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
+
+
+database_url = f'://{config('DB_USER')}:{config('DB_PASSWORD')}@{config('DB_HOST')}:{config('DB_PORT')}/{config('DATABASE')}'
+
 config = context.config
-config.set_main_option("sqlalchemy.url", 'postgresql+asyncpg' + load_db_URL())
+config.set_main_option("sqlalchemy.url", 'postgresql+asyncpg' + database_url)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:

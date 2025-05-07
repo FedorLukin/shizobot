@@ -168,7 +168,8 @@ async def description_request(message: Message, state: FSMContext) -> None:
 async def media_request(message: Message, state: FSMContext) -> None:
     """Проверка валидности текста анкеты и запрос медиа"""
     if len(message.text) <= 2048:
-        await message.answer(text='Отлично, теперь пришли фото или видео')
+        data = await state.get_data()
+        await message.answer(text='Отлично, теперь пришли фото или видео' if not data.get('editing_media') else 'Пришли фото или видео')
         await state.update_data(description=message.text.strip(), media=[])
         await state.set_state(RegistrationSteps.media_confirmation)
     else:
@@ -179,6 +180,7 @@ async def media_request(message: Message, state: FSMContext) -> None:
 async def media_confirmation(message: Message, state: FSMContext) -> None:
     """Сохранение медиа"""
     data = await state.get_data()
+
     if message.content_type == ContentType.VIDEO and not data.get('media'):
         if not data.get('editing_media'):
             await state.update_data(media=message.video.file_id, video=True)
@@ -188,12 +190,17 @@ async def media_confirmation(message: Message, state: FSMContext) -> None:
             await show_self_anket(message=message, state=state)
 
     elif message.content_type == ContentType.PHOTO:
-        data['media'].append(message.photo[-1].file_id)
-        if len(data['media']) < 3:
-            await message.answer(text=f'Фото добавлено {len(data['media'])} из 3. Добавить ещё?', reply_markup=add_photo_confirmation_kb())
-        else:
-            await state.update_data(video=False)
+        await state.update_data(media=data['media'] + [message.photo[-1].file_id])
+        if len(data['media']) < 2:
+            await state.update_data(media=data['media'] + [message.photo[-1].file_id])
+            await message.answer(text=f'Фото добавлено {len(data['media']) + 1} из 3. Добавить ещё?',reply_markup=add_photo_confirmation_kb())
+        elif not data.get('editing_media'):
+            await state.update_data(media=data['media'] + [message.photo[-1].file_id])
             await anket_confirmation(message=message, state=state)
+        else:
+            await add_media(tg_id=message.from_user.id, media=data['media'] + [message.photo[-1].file_id], is_video=False)
+            await show_self_anket(message=message, state=state)
+
 
     elif message.content_type == ContentType.TEXT:
         if message.text == 'это все, сохранить фото':
@@ -257,8 +264,9 @@ async def start_search_or_edit_anket(message: Message, state: FSMContext, bot: B
     """Опции редактирования анкеты или старт поиска анкет"""
     match message.text:
         case '1🚀': # проверка подписки и старт поиска анкет 
-            member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
-            if member.status == 'left':
+            # member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
+            # if member.status == 'left':
+            if False:
                 await state.set_state(MainStates.subscription_check)
                 await message.answer(text='Для использования бота необходимо быть подписанным на <a href="https://t.me/shizocells">канал</a>', reply_markup=subscribe_confirm())
             
@@ -309,8 +317,9 @@ async def main_options(message: Message, state: FSMContext, bot: Bot) -> None:
     """Основные опции"""
     match message.text:
         case '1🚀': # проверка подписки и старт поиска анкет 
-            member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
-            if member.status == 'left':
+            # member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
+            # if member.status == 'left':
+            if False:
                 await state.set_state(MainStates.subscription_check)
                 await message.answer(text='Для использования бота необходимо быть подписанным на <a href="https://t.me/shizocells">канал</a>', reply_markup=subscribe_confirm())
 

@@ -19,6 +19,7 @@ async def add_anket(session: AsyncSession, tg_id: int, name: str, age: int, gend
 @async_connection
 async def add_media(session: AsyncSession, tg_id: int, media: List[str], is_video: bool) -> None:
     await session.execute(delete(MediaFile).where(MediaFile.user == tg_id))
+    print('files in request:', media)
     files_to_save = [MediaFile(user=tg_id, file=file_id, video=is_video) for file_id in media]
     session.add_all(files_to_save)
     await session.commit()

@@ -3,19 +3,16 @@ from aiohttp import web
 
 from bot.db.requests import get_admins
 from bot.create_bot import bot, dp
-from bot.config import load_server_config
 
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from aiogram import Bot
 
-
-serv_conf = load_server_config()
+from decouple import config
 
 
 async def on_startup(bot: Bot) -> None:
-    await bot.set_webhook(f"{serv_conf.base_webhook_url}{serv_conf.webhook_path}",
-                          secret_token=serv_conf.webhook_secret)
+    await bot.set_webhook(f"{config('BASE_WEBHOOK_URL')}{config('WEBHOOK_PATH')}", secret_token=config('WEBHOOK_SECRET'))
     admins_ids = await get_admins()
     for id in admins_ids:
         try:
@@ -40,11 +37,11 @@ def main() -> None:
     webhook_requests_handler = SimpleRequestHandler(
         dispatcher=dp,
         bot=bot,
-        secret_token=serv_conf.webhook_secret,
+        secret_token=config('WEBHOOK_SECRET'),
     )
-    webhook_requests_handler.register(app, path=serv_conf.webhook_path)
+    webhook_requests_handler.register(app, path=config('WEBHOOK_PATH'))
     setup_application(app, dp, bot=bot)
-    web.run_app(app, host=serv_conf.web_server_host, port=serv_conf.web_server_port)
+    web.run_app(app, host=config('WEB_SERVER_HOST'), port=config('WEB_SERVER_PORT'))
 
 
 if __name__ == "__main__":
