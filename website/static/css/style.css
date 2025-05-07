@@ -252,6 +252,289 @@ nav a:hover {
         display: none;
     }
     .donations-title {
+        margin-left: 3%;
+        margin-right: 3%;
+    }
+    .donations-title H1 {
+        margin-top: 15px;
+    }
+    .donations-title H2 {
+        margin-bottom: 15px;
+    }
+    .title H1 {
+        font-size: calc(42px + 12 * (100vw - 320px) / 880);
+    }
+    .title H3 {
+        font-size: calc(19px + 12 * (100vw - 320px) / 880);
+    }
+    .link { 
+        height: calc(30vw * 9 / 16 + 5vh);
+        margin-left: 3%;
+        margin-right: 3%;
+    }
+    .description H4 {
+        font-size: calc(17px + 12 * (100vw - 320px) / 880);
+    }
+    .description p {
+        margin-left: 8%;
+        margin-right: 8%;
+        font-family: 'Roboto-SemiBold';
+        font-size: calc(13px + 12 * (100vw - 320px) / 880);
+    }
+}* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+    width: 0;
+  }
+
+:root {
+    --main-bg-color: rgb(32, 32, 32);
+    --foter-color: rgb(44, 44, 44);
+    --link-bg-color: linear-gradient(140deg, rgba(30, 30, 30, 0.85), rgba(255, 255, 255, 0.1));
+    --link-hover-bg-color: linear-gradient(140deg, rgba(30, 30, 30, 0.85), rgba(145, 145, 145, 0.281));
+    --nav-hover-bg-color: rgba(235, 235, 235, 0.438);
+}
+
+body {
+    background-color: var(--main-bg-color);
+    height: 100%;
+}
+
+header {
+    top: 0;
+    z-index: 100;
+    width: 100vw;
+    height: 30vh;
+    padding-top: 10px;
+    display: flex;
+    position: fixed;
+    align-items: center;
+    flex-direction: column;
+    justify-content: flex-end;
+    background-size: 100%;
+    background-repeat: no-repeat;
+    background-position: center;  
+}
+
+main {
+    min-height: 100vh;
+    padding-top: 30vh;  
+}
+
+footer {
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    padding-top: 2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    padding-bottom: 2rem;
+    background-color: var(--foter-color);
+    transition: all 0.4s ease;
+}
+
+footer p {
+    margin: auto;
+    font-family: 'Roboto';
+    color: white;
+    font-weight: 400;
+    font-size: 20px;
+}
+
+footer:hover {
+    transform: translateY(-5px);
+}
+
+.donations-title {
+    margin-left: 7%;
+    margin-right: 7%;
+    margin-top: 25px;
+    border-radius: 12px;
+    display: flex;
+    text-align: center;
+    flex-direction: column;
+    background-color: var(--foter-color);
+    transition: all 0.3s ease;
+}
+
+.donations-title:hover {
+    transform: translateY(-5px);
+}
+
+.donations-title H1 {
+    margin-left: 15px;
+    margin-right: 15px;
+    font-family: 'Roboto-SemiBold';
+    font-size: calc(16px + 12 * (100vw - 320px) / 880);
+    color: white;
+}
+
+.donations-title H2 {
+    margin-left: 15px;
+    margin-right: 15px;
+    font-family: 'Roboto-SemiBold';
+    font-size: calc(16px + 12 * (100vw - 320px) / 880);
+    font-weight: 500;
+    color: white;
+}
+
+.title {
+    text-align: center;
+    margin: auto;
+    margin-left: 3%;
+    margin-right: 3%;
+    width: 86%;    
+    border-radius: 12px;
+}
+
+.title H1 {
+    font-family: 'Roboto-SemiBold';
+    font-weight: 600;
+    font-size: 68px;
+    color: white;
+}
+
+.title H3 {
+    font-family: 'Roboto';
+    font-weight: 400;
+    font-size: 32px;
+    color: white;
+}
+
+.description {
+    flex: 1;
+    width: auto;
+    min-height: 15px;
+    line-height: 15px;
+    flex-direction: column;
+    vertical-align: middle;
+    align-items: center;
+    align-self: center;
+    box-sizing: border-box;
+}
+
+.description H4 {
+    margin: 1rem 0;
+    font-family: 'Roboto-SemiBold';
+    font-weight: 500;
+    font-size: calc(16px + 12 * (100vw - 320px) / 880);
+    color: white;
+}
+
+.description p {
+    font-family: 'Roboto';
+    font-weight: 400;
+    font-size: calc(12px + 12 * (100vw - 320px) / 880);
+    color: white;
+}
+
+.links {
+    width: 100%;
+    margin-top: 15px;
+    border-radius: 12px;
+    display: flex;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    margin-left: auto;
+    margin-right: auto;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    background-size: 85vw;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-position-y: -20vh;
+}
+
+.link {
+    padding: 1rem;
+    margin-left: 7%;
+    margin-right: 7%;
+    margin-top: 1rem;
+    border-radius: 12px;
+    display: flex;
+    text-align: center;
+    text-decoration: none;
+    justify-content: space-between;
+    height: calc(13vw * 9 / 16 + 5vh);
+    background: var(--link-bg-color);
+    transition: all 0.3s ease;
+}
+
+.link:hover {
+    background: var(--link-hover-bg-color); 
+    transform: scale(1.04);
+}
+
+.logo, .second-logo {
+    width: auto;
+    height: 100%;
+    border-radius: 5%;
+}
+
+.theme-aware-link {
+    color: white;
+    transition:
+        color 0.3s ease;
+        transition-property: color;
+        transition-timing-function: ease;
+        transition-behavior: normal;
+        transition-duration: 0.3s;
+        transition-delay: 0s;
+}
+
+.theme-aware-link:hover {
+    text-decoration: underline;
+    opacity: 0.8;
+}
+
+nav {
+    margin: 0;
+    padding: 0;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+}
+
+nav ul {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    gap: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    justify-content: center;
+}
+
+nav a {
+    padding: 0.5rem 1rem;
+    display: inline-block;
+    position: relative;
+    text-decoration: none;
+    font-family: 'Roboto';
+    font-weight: 500;
+    font-size: 30px;
+    color: white;
+    transition: all 0.3s ease;
+    }
+
+nav a:hover {
+    border-radius: 7px;
+    background-color: var(--nav-hover-bg-color);
+    transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+    .second-logo {
+        display: none;
+    }
+    .donations-title {
         text-align: left;
     }
 }

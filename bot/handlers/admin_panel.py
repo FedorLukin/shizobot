@@ -6,17 +6,10 @@ from aiogram.types import CallbackQuery, Message, ContentType
 from aiogram import Bot, Router, F
 
 from bot.keyboards.admin_panel_keyboards import *
-
 from bot.middlewares.album_middleware import AlbumMiddleware
 from bot.middlewares.admin_filter import AdminAccessMiddleware
-
 from bot.misc.states import AdminPanelStates
-
-# from bot.db.requests import get_users, delete_user, get_rates, set_rate, get_orders
-# from bot.db.requests import get_products_list, set_product_status, get_product_status
 from bot.db.requests import *
-import logging
-import datetime as dt
 import asyncio
 
 router = Router()
@@ -25,17 +18,9 @@ router.message.middleware(AlbumMiddleware())
 router.callback_query.middleware(AdminAccessMiddleware())
 
 
-
 @router.message(Command('admin'))
 async def admin(message: Message) -> None:
-    await message.answer(text=f'Здравствуйте, {message.from_user.first_name}! Вы являетесь администратором '
-                              f'данного бота и можете воспользоваться админ-панелью', reply_markup=admin_panel_kb())
-
-
-@router.message(F.text == 'админ-панель 🔐')
-async def admin_panel(message: Message, state: FSMContext) -> None:
-    await message.answer(text='Добро пожаловать в админ-панель!', reply_markup=admin_panel_kb())
-    await state.clear()
+    await message.answer(text=f'Админ панель к вашим услугам, {message.from_user.first_name}.', reply_markup=admin_panel_kb())
 
 
 @router.callback_query(F.data == 'back')
@@ -44,16 +29,18 @@ async def admin_panel_back(callback: CallbackQuery, state: FSMContext) -> None:
     messages_to_delete = notification_data.get('to_delete')
     if isinstance(messages_to_delete, Message):
         await messages_to_delete.delete()
+
     elif messages_to_delete:
         for message in messages_to_delete:
             await message.delete()
+
     if callback.message.content_type == ContentType.TEXT:
-        await callback.message.edit_text(text='Добро пожаловать в админ-панель!',
-                                         reply_markup=admin_panel_kb(callback.from_user.id))
+        await callback.message.edit_text(text=f'Админ панель к вашим услугам, {callback.from_user.first_name}.',
+                                         reply_markup=admin_panel_kb())
     else:
         await callback.message.delete()
-        await callback.message.answer(text='Добро пожаловать в админ-панель!',
-                                      reply_markup=admin_panel_kb(callback.from_user.id))
+        await callback.message.answer(text=f'Админ панель к вашим услугам, {callback.from_user.first_name}.',
+                                      reply_markup=admin_panel_kb())
     await state.clear()
 
 
@@ -121,7 +108,7 @@ async def notifaction_start(callback: CallbackQuery, state: FSMContext, bot: Bot
                 await notification_message.send_copy(user_id)
 
         except TelegramForbiddenError:
-            await delete_user(user_id)
+            pass
 
         percent = int(counter / rows_num * 100) // 10
         await msg.edit_text(text=f'рассылка в процессе\n{"🟩" * percent}{"⬜️" * (10 - percent)} {counter}/{rows_num}')
@@ -133,7 +120,15 @@ async def notifaction_start(callback: CallbackQuery, state: FSMContext, bot: Bot
 
 @router.callback_query(F.data == 'stats')
 async def get_stats(callback: CallbackQuery) -> None:
+    await callback.message.delete()
     ankets = await get_ankets_data()
+    ankets_count = len(ankets)
+    active_ankets_count = sum(1 for anket in ankets if anket[3])
+    females_count = sum(1 for anket in ankets if not anket[0])
+    males_count = sum(1 for anket in ankets if anket[0])
+    active_females = sum(1 for anket in ankets if not anket[0] and anket[3])
+    active_males = sum(1 for anket in ankets if anket[0] and anket[3])
     ages = [anket[1] for anket in ankets]
     middle_age = round(sum(ages) / len(ages))
-    await callback.message.answer(text=f'<b><i>Статистика пользователей бота:</i></b>\nВсего анкет: <b>{len(ankets)}</b>, из них <b>{sum(1 for anket in ankets if not anket[0])}</b> тянок и <b>{sum(1 for anket in ankets if anket[0])}</b> мужла\nАктивных анкет: <b>{sum(1 for anket in ankets if anket[3])}</b>, из них <b>{sum(1 for anket in ankets if not anket[0] and anket[3])}</b> тянок и <b>{sum(1 for anket in ankets if anket[0] and anket[3])}</b> мужла\nСредний возраст анкеты: <b>{middle_age}</b> лет\nКоличество уникальных указанных городов: <b>{len({anket[2] for anket in ankets if anket[2]})}</b>')
+    cities_count = len({anket[2] for anket in ankets if anket[2]})
+    await callback.message.answer(text=f'<b><i>Статистика пользователей бота:</i></b>\nВсего анкет: <b>{ankets_count}</b>, из них <b>{females_count}</b> тянок и <b>{males_count}</b> мужла\nАктивных анкет: <b>{active_ankets_count}</b>, из них <b>{active_females}</b> тянок и <b>{active_males}</b> мужла\nСредний возраст анкеты: <b>{middle_age}</b> лет\nКоличество уникальных указанных городов: <b>{cities_count}</b>')

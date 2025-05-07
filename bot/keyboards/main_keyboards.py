@@ -1,5 +1,5 @@
-from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 
 def start_bot_kb() -> ReplyKeyboardMarkup:
@@ -107,4 +107,4 @@ def subscribe_confirm() -> ReplyKeyboardMarkup:
 def call_menu_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.add(KeyboardButton(text='/menu'))
-    return kb.as_markup()
+    return kb.as_markup(resize_keyboard=True)

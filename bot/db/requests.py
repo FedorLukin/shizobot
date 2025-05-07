@@ -1,12 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
-from sqlalchemy import select, exists, delete, case, and_, func
-import pdb
+from sqlalchemy import select, delete, case, func
 from .database import async_connection
-from .models import Anket, MediaFile, Like
+from .models import Anket, MediaFile, Like, Admin
 
 from typing import List, Tuple
-from datetime import date
 
 
 @async_connection
@@ -22,6 +19,7 @@ async def add_anket(session: AsyncSession, tg_id: int, name: str, age: int, gend
 @async_connection
 async def add_media(session: AsyncSession, tg_id: int, media: List[str], is_video: bool) -> None:
     await session.execute(delete(MediaFile).where(MediaFile.user == tg_id))
+    print('files in request:', media)
     files_to_save = [MediaFile(user=tg_id, file=file_id, video=is_video) for file_id in media]
     session.add_all(files_to_save)
     await session.commit()
@@ -30,9 +28,10 @@ async def add_media(session: AsyncSession, tg_id: int, media: List[str], is_vide
 @async_connection
 async def change_anket_status(session: AsyncSession, tg_id: int, status: bool) -> None:
     user = await session.scalar(select(Anket).filter_by(id=tg_id))
-    user.active = status
-    await session.merge(user)
-    await session.commit()
+    if user:
+        user.active = status
+        await session.merge(user)
+        await session.commit()
 
 
 @async_connection
@@ -59,8 +58,9 @@ async def get_ankets_queue(session: AsyncSession, tg_id: int, n: int) -> List[in
                 (Anket.city == usr.city, 0),
                 else_=1
             ),
-            func.abs(Anket.age - usr.age)
-            )
+            func.abs(Anket.age - usr.age),
+            Anket.id
+        )
         .offset(n * 20)
         .limit(20)
     )
@@ -70,6 +70,11 @@ async def get_ankets_queue(session: AsyncSession, tg_id: int, n: int) -> List[in
 @async_connection
 async def get_users(session: AsyncSession) -> List[int]:
     result = await session.execute(select(Anket.id))
+    return result.scalars().all()
+
+@async_connection
+async def get_admins(session: AsyncSession) -> List[int]:
+    result = await session.execute(select(Admin.id))
     return result.scalars().all()
 
 @async_connection

@@ -1,47 +1,50 @@
-from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
-
-# from bot.db.requests import get_admins
-from bot.create_bot import bot, dp
-from bot.misc.gecoder import get_city_by_cords, get_city_by_name
-from cachetools import TTLCache
-
-import asyncio
 import logging
-from dotenv import dotenv_values
+from aiohttp import web
 
-errors_cache = TTLCache(maxsize=30, ttl=120)
+from bot.db.requests import get_admins
+from bot.create_bot import bot, dp
+
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+from aiogram import Bot
+
+from decouple import config
 
 
-async def start_bot() -> None:
-    env_vars = dotenv_values(".env")
-    devs_ids = list(map(int, env_vars['DEVELOPERS_IDS'].split(',')))
-    # admins_ids = await get_admins()
-    # admins_and_devs = set(admins_ids + devs_ids)
-    for id in devs_ids:
+async def on_startup(bot: Bot) -> None:
+    await bot.set_webhook(f"{config('BASE_WEBHOOK_URL')}{config('WEBHOOK_PATH')}", secret_token=config('WEBHOOK_SECRET'))
+    admins_ids = await get_admins()
+    for id in admins_ids:
         try:
-            await bot.send_message(chat_id=id, text='бот запущен 🚀')
+            await bot.send_message(chat_id=id, text='Бот запущен 🚀')
         except (TelegramForbiddenError, TelegramBadRequest):
             pass
 
-    # Запуск бота
-    await main()
 
-
-async def main() -> None:
-    while True:
+async def on_shutdown(bot: Bot) -> None:
+    admins_ids = await get_admins()
+    for id in admins_ids:
         try:
-            logs_format = '%(asctime)s - %(filename)s:%(lineno)d - %(message)s'
-            logging.basicConfig(level=logging.INFO, filename='logs.log', filemode='w', format=logs_format)
-            await bot.delete_webhook(drop_pending_updates=True)
-            await dp.start_polling(bot)
-
-        except Exception as ex:
-            await dp.stop_polling()
-            error_name = ex.__class__.__name__
-            if not errors_cache.get(error_name):
-                errors_cache[error_name] = True
-                logging.error(ex)
+            await bot.send_message(chat_id=id, text='<b><i>Бот остановлен ❗</i></b>')
+        except (TelegramForbiddenError, TelegramBadRequest):
+            pass
 
 
-if __name__ == '__main__':
-    asyncio.run(start_bot())
+def main() -> None:
+    dp.shutdown.register(on_shutdown)
+    dp.startup.register(on_startup)
+    app = web.Application()
+    webhook_requests_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+        secret_token=config('WEBHOOK_SECRET'),
+    )
+    webhook_requests_handler.register(app, path=config('WEBHOOK_PATH'))
+    setup_application(app, dp, bot=bot)
+    web.run_app(app, host=config('WEB_SERVER_HOST'), port=config('WEB_SERVER_PORT'))
+
+
+if __name__ == "__main__":
+    logs_format = '%(asctime)s - %(filename)s:%(lineno)d - %(message)s'
+    logging.basicConfig(level=logging.ERROR, filename='logs.log', filemode='w', format=logs_format)
+    main()
