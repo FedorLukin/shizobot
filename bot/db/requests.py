@@ -4,7 +4,7 @@ from .database import async_connection
 from .models import Anket, MediaFile, Like, Admin
 
 from typing import List, Tuple
-
+import asyncio
 
 @async_connection
 async def add_anket(session: AsyncSession, tg_id: int, name: str, age: int, gender: bool, interest: int,
@@ -121,18 +121,19 @@ async def save_like(session: AsyncSession, user_id: int, username: str, anket_id
 @async_connection
 async def get_likes(session: AsyncSession, tg_id: int) -> List[Like]:
     result = await session.execute(
-        select(Like)
+        select(Like.id, Like.sender_id, Like.message)
         .join(Anket, Like.sender_id == Anket.id)
         .where(
             Like.recipient_id == tg_id,
             Anket.active == True
         )
     )
-    return list(result.scalars())
+    return result.all()
 
 
 @async_connection
-async def remove_like(session: AsyncSession, like: Like) -> None:
+async def remove_like(session: AsyncSession, like_id: int) -> None:
+    like = await session.scalar(select(Like).filter_by(id=like_id))
     await session.delete(like)
     await session.commit()
 

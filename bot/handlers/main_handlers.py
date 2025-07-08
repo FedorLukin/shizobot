@@ -4,7 +4,7 @@ from aiogram.fsm.state import default_state
 from aiogram.filters import ChatMemberUpdatedFilter, StateFilter, Command, KICKED
 from aiogram.types import Message, ChatMemberUpdated, ReplyKeyboardRemove, ContentType
 from aiogram import Router, F, Bot
-
+from aiogram.methods.get_chat_member import GetChatMember
 from bot.keyboards.admin_panel_keyboards import *
 from bot.keyboards.main_keyboards import *
 from bot.misc.gecoder import get_city_by_name, get_city_by_cords
@@ -13,7 +13,7 @@ from bot.db.requests import *
 
 
 router = Router()
-router.message.middleware(ThrottlingMiddleware())
+router.message.middleware()
 
 
 async def start_search(message: Message, state: FSMContext) -> None:
@@ -46,7 +46,7 @@ async def show_self_anket(message: Message, state: FSMContext) -> None:
     await message.answer('1. Смотреть анкеты.\n2. Заполнить анкету заново.\n3. Изменить фото/видео.\n4. Изменить текст анкеты.', reply_markup=main_options_kb())
 
 
-async def render_anket(anket_id, message: Message, pre_text='', after_text='') -> None:
+async def render_anket(anket_id, message: Message, pre_text='', after_text='', start_chat=False) -> None:
     """Рендер анкеты"""
     anket = await get_anket(anket_id)
     media_list = await get_media(anket_id)
@@ -54,30 +54,34 @@ async def render_anket(anket_id, message: Message, pre_text='', after_text='') -
     anket_text = f'{pre_text}{anket.name}, {anket.age}{city} - {anket.description}{after_text}'
     if media_list[0].video:
         await message.answer_video(video=media_list[0].file, caption=anket_text)
+    
     else:
         album_builder = MediaGroupBuilder(caption=anket_text)
         for media in media_list:
             album_builder.add_photo(media=media.file)
         album = album_builder.build()
-        await message.answer_media_group(media=album, caption=anket_text, )
+        await message.answer_media_group(media=album, caption=anket_text)
+    
+    if start_chat:
+        await message.answer(text='<b>Начинай общаться 👇</b>', reply_markup=start_chat_kb(anket_id, anket.name))
 
 
 async def get_anket_from_queue(tg_id: int, state: FSMContext) -> int | None:
     """Получение следующей анкеты из стека"""
     data = await state.get_data()
     queue, offset = data['queue'], data['offset']
-    try: # пробуем получить анкету из итератора
-        return next(queue)
+    try: # пробуем получить анкету из стека
+        return queue.pop(0)
 
-    except StopIteration: # если стек исчерпан
+    except IndexError: # если стек исчерпан
         offset += 1 # увеличиваем смещение на 1
 
         for i in offset, 0: # пробуем найти анкеты в бд с увеличенным или нулевым смещением
-            ankets = await get_ankets_queue(tg_id, i)
-            if ankets:
-                await state.update_data(queue=iter(ankets), offset=i)
+            ankets_queue = await get_ankets_queue(tg_id, i)
+            if ankets_queue:
+                await state.update_data(queue=ankets_queue, offset=i)
                 data = await state.get_data()
-                return next(data['queue'])
+                return data['queue'].pop(0)
 
         return None # возвращаем None если анкет не найдено
 
@@ -85,22 +89,25 @@ async def get_anket_from_queue(tg_id: int, state: FSMContext) -> int | None:
 @router.message(Command('start'))
 async def start(message: Message, state: FSMContext) -> None:
     """Старт бота или вызов главного меню"""
+    await state.clear()
     if not await get_anket(message.from_user.id):
+        print(message.from_user.id)
         await state.clear()
         await state.set_state(RegistrationSteps.start)
         await message.answer('добро пожаловать в клуб знакомств шизоцелов!', reply_markup=start_bot_kb())
     else:
         await menu(message, state)
+    
 
 
 @router.message(Command('menu'))
-async def menu(message: Message, state: FSMContext) -> None:
+async def menu(message: Message, state: FSMContext, reciprocity=False) -> None:
     """Меню выбора основных опций"""
-    if await get_anket(message.from_user.id):
+    if await get_anket(message.from_user.id) or reciprocity:
         await state.set_state(MainStates.option_selection)
-        await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу',
-                             reply_markup=main_options_kb())
+        await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу', reply_markup=main_options_kb())
     else:
+        print(message.from_user.id)
         await start(message=message, state=state)
 
 
@@ -122,21 +129,21 @@ async def gender_request(message: Message, state: FSMContext) -> None:
     else:
         await state.update_data(age=int(message.text.strip()))
         await state.set_state(RegistrationSteps.gender_request)
-        await message.answer('Кем себя ощущаешь?', reply_markup=gender_selection_kb())
+        await message.answer('Твоя половая принадлежность?', reply_markup=gender_selection_kb())
 
 
-@router.message(F.text.in_(('инцел', 'фемцел')), StateFilter(RegistrationSteps.gender_request))
+@router.message(F.text.in_(('парень', 'девушка')), StateFilter(RegistrationSteps.gender_request))
 async def interest_request(message: Message, state: FSMContext) -> None:
     """Уточнение интереса"""
-    await state.update_data(gender=message.text == 'инцел')
+    await state.update_data(gender=message.text == 'парень')
     await state.set_state(RegistrationSteps.interest_request)
     await message.answer('А кого хочешь найти?', reply_markup=interest_selection_kb())
 
 
-@router.message(F.text.in_(('фемцелочку', 'инцела', 'да похуй')), StateFilter(RegistrationSteps.interest_request))
+@router.message(F.text.in_(('девушку', 'парня', 'всё равно')), StateFilter(RegistrationSteps.interest_request))
 async def location_request(message: Message, state: FSMContext) -> None:
     """Запрос города"""
-    await state.update_data(interest=('фемцелочку', 'инцела', 'да похуй').index(message.text))
+    await state.update_data(interest=('девушку', 'парня', 'всё равно').index(message.text))
     await state.set_state(RegistrationSteps.location_request)
     await message.answer('Окей, напиши свой город или отправь геопозицию, чтобы найти шизов рядом', reply_markup=location_request_kb())
 
@@ -167,9 +174,9 @@ async def description_request(message: Message, state: FSMContext) -> None:
     if len(message.text) <= 32:
         await state.update_data(name=message.text.strip())
         await state.set_state(RegistrationSteps.description_request)
-        await message.answer(text='Красивое имя, у меня аж встал) Теперь расскажи о себе и желательно в деталях.')
+        await message.answer(text='Красивое имя, теперь расскажи о себе и желательно в деталях.')
     else:
-        await message.answer(text='Чёт сильно длинное у тебя имя, я не запомню, попробуй ещё раз.')
+        await message.answer(text='У тебя длинное имя, я не запомню, попробуй ещё раз.')
 
 
 @router.message(F.text, StateFilter(RegistrationSteps.description_request))
@@ -181,7 +188,7 @@ async def media_request(message: Message, state: FSMContext) -> None:
         await state.update_data(description=message.text.strip(), media=[])
         await state.set_state(RegistrationSteps.media_confirmation)
     else:
-        await message.answer(text='А не дохуя-ли информации? Давай покороче как-то, пробуй ещё раз.')
+        await message.answer(text='А не многовато-ли информации? Давай покороче как-то, попробуй ещё раз.')
 
 
 @router.message(F.content_type.in_({'photo', 'video', 'text'}), StateFilter(RegistrationSteps.media_confirmation))
@@ -228,7 +235,7 @@ async def anket_confirmation(message: Message, state: FSMContext) -> None:
     description, media = data['description'], data['media']
     anket_text = f'{main_info} – {description}' 
     await message.answer(text='<i>Так выглядит твоя анкета:</i>')
-    if not data['video']:
+    if not data.get(['video']):
         album_builder = MediaGroupBuilder(caption=anket_text)
         for id in media:
             album_builder.add_photo(media=id)
@@ -261,7 +268,7 @@ async def check_subscription(message: Message, state: FSMContext, bot: Bot):
     if message.text == 'я подписался':
         member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
         if member.status == 'left':
-            await message.answer(text='Ну вот кому ты пиздишь? Ты чо, типа, самый умный?')
+            await message.answer(text='У меня другое мнение на этот счёт, подпишись и пробуй снова.')
         else:
             await state.set_state(MainStates.option_selection)
             await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу', reply_markup=main_options_kb())
@@ -272,9 +279,8 @@ async def start_search_or_edit_anket(message: Message, state: FSMContext, bot: B
     """Опции редактирования анкеты или старт поиска анкет"""
     match message.text:
         case '1🚀': # проверка подписки и старт поиска анкет 
-            # member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
-            # if member.status == 'left':
-            if False:
+            member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
+            if member.status == 'left':
                 await state.set_state(MainStates.subscription_check)
                 await message.answer(text='Для использования бота необходимо быть подписанным на <a href="https://t.me/shizocells">канал</a>', reply_markup=subscribe_confirm())
             
@@ -293,7 +299,7 @@ async def start_search_or_edit_anket(message: Message, state: FSMContext, bot: B
                                             'Изменить фото/видео.\n4. Изменить текст анкеты.',
                                             reply_markup=main_options_kb())
                     else:
-                        await state.update_data(queue=iter(ankets_queue), offset=0)
+                        await state.update_data(queue=ankets_queue, offset=0)
                         await start_search(message=message, state=state)
 
         case '2': # заполнение анкеты с начала
@@ -317,7 +323,7 @@ async def anket_description_edit(message: Message, state: FSMContext) -> None:
         await change_anket_description(tg_id=message.from_user.id, text=message.text)
         await show_self_anket(message=message, state=state)
     else:
-        await message.answer(text='А не дохуя-ли информации? Давай покороче как-то, пробуй ещё раз.')
+        await message.answer(text='А не многова-то ли информации? Давай покороче как-то, попробуй ещё раз.')
 
 
 @router.message(F.text.in_(('1🚀', '2', '3', '4')), StateFilter(MainStates.option_selection))
@@ -325,9 +331,8 @@ async def main_options(message: Message, state: FSMContext, bot: Bot) -> None:
     """Основные опции"""
     match message.text:
         case '1🚀': # проверка подписки и старт поиска анкет 
-            # member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
-            # if member.status == 'left':
-            if False:
+            member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
+            if member.status == 'left':
                 await state.set_state(MainStates.subscription_check)
                 await message.answer(text='Для использования бота необходимо быть подписанным на <a href="https://t.me/shizocells">канал</a>', reply_markup=subscribe_confirm())
 
@@ -341,7 +346,7 @@ async def main_options(message: Message, state: FSMContext, bot: Bot) -> None:
                 else:
                     ankets_queue = await get_ankets_queue(message.from_user.id, 0)
                     if ankets_queue:
-                        await state.update_data(queue=iter(ankets_queue), offset=0)
+                        await state.update_data(queue=ankets_queue, offset=0)
                         await start_search(message=message, state=state)
                     
                     else:
@@ -353,7 +358,7 @@ async def main_options(message: Message, state: FSMContext, bot: Bot) -> None:
 
         case '3': # отключение анкеты
             await state.set_state(MainStates.anket_state_switch)
-            await message.answer(text='Отключить анкету? Так ты не узнаешь, что кому-то не похуй на тебя.',
+            await message.answer(text='Отключить анкету? Так ты не узнаешь, кому ты понравился.',
                                  reply_markup=turn_anket_off_kb())
 
         case '4': # донат
@@ -387,20 +392,20 @@ async def search(message: Message, state: FSMContext, bot: Bot) -> None:
 @router.message(F.text == 'посмотреть')
 async def start_like_answer(message: Message, state: FSMContext) -> None:
     """Просмотр анкет людей, которым понравился пользователь"""
-    likes = await get_likes(message.from_user.id)
-    likes_queue = iter(likes)
+    likes_queue = [list(like) for like in await get_likes(message.from_user.id)]
     try:
-        like = next(likes_queue)
+        like = likes_queue.pop(0)
+        person_id, message_text = like[1:]
         await message.answer(text='🔎📑', reply_markup=likes_dislike_kb())
         pre_text = '<b>Кому-то понравилась твоя анкета:</b>'
-        pre_text += f'(и ещё {len(likes) - 1})\n\n' if len(likes) > 1 else '\n\n'
-        after_text = f'\n\n💌 <b>Сообщение для тебя:</b>\n{like.message}' if like.message else ''
-        await render_anket(like.sender_id, message, pre_text, after_text)
+        pre_text += f'(и ещё {len(likes_queue)})\n\n' if len(likes_queue) >= 1 else '\n\n'
+        after_text = f'\n\n💌 <b>Сообщение для тебя:</b>\n{message_text}' if message_text else ''
+        await render_anket(anket_id=person_id, message=message, pre_text=pre_text, after_text=after_text)
         await state.update_data(processing=like)
         await state.set_state(MainStates.likes_answer)
-        await state.update_data(likes=likes_queue, count=len(likes) - 1)
+        await state.update_data(likes=likes_queue)
 
-    except StopIteration:
+    except IndexError:
         await message.answer(text='Уже неакутально 😔')
         await menu(message=message, state=state)
 
@@ -409,29 +414,29 @@ async def start_like_answer(message: Message, state: FSMContext) -> None:
 async def like_answer(message: Message, state: FSMContext, bot: Bot) -> None:
     """Ответ на лайки"""
     data = await state.get_data()
+    like_id, person_id = data['processing'][:2]
 
     if message.text == '❤️':
-        anket = await get_anket(tg_id=data['processing'].sender_id)
-        await message.answer(text=f'<b>Отлично, начинай общаться с </b><a href="https://t.me/{data['processing'].sender_username}">{anket.name}</a>.', disable_web_page_preview=True)
-        sender_name = await get_name(tg_id=message.from_user.id)
-        msg = await bot.send_message(data['processing'].sender_id, text=f'<b>Есть взаимная симпатия:</b>', reply_markup=call_menu_kb(), disable_web_page_preview=True)
-        await render_anket(anket_id=message.from_user.id, message=msg)
-        await bot.send_message(data['processing'].sender_id, text=f'<b>Начинай общаться с</b> <a href="https://t.me/{message.from_user.username}">{sender_name}</a>.', disable_web_page_preview=True)
+        anket = await get_anket(tg_id=person_id)
+        await message.answer(text=f'<b>Начинай общаться 👇</b>', reply_markup=start_chat_kb(person_id, anket.name))
+        msg = await bot.send_message(person_id, text=f'<b>Есть взаимная симпатия!</b>')
+        await render_anket(anket_id=message.from_user.id, message=msg, start_chat=True)
+        await bot.send_message(person_id, text=f'Дём дальше?', reply_markup=call_menu_kb())
 
-    await remove_like(data['processing'])
+    await remove_like(like_id)
+    likes_queue = data['likes']
 
-    try:
-        like = next(data['likes'])
+    if len(likes_queue) >= 1:
+        like = likes_queue.pop(0)
+        person_id, message_text = like[1:]
         pre_text = '<b>Кому-то понравилась твоя анкета</b>'
-        pre_text += f'(и ещё {data['count'] - 1})\n\n' if data['count'] >= 2 else '\n\n'
-        after_text = f'\n\n💌 <b>Сообщение для тебя:\n{like.message}</b>' if like.message else ''
-        await state.update_data(count=data['count'] - 1, processing=like)
+        pre_text += f'(и ещё {len(likes_queue)})\n\n' if len(likes_queue) >= 1 else '\n\n'
+        after_text = f'\n\n💌 <b>Сообщение для тебя:\n{message_text}</b>' if message_text else ''
+        await state.update_data(processing=like)
         await render_anket(like.sender_id, message, pre_text, after_text)
 
-    except StopIteration:
-        await state.clear()
-        await state.set_state(MainStates.option_selection)
-        await message.answer('1. Смотреть анкеты.\n2. Моя анкета.\n3. Я больше не хочу никого искать.\n4. Донат админу', reply_markup=main_options_kb())
+    else:
+        await menu(message=message, state=state)
 
 
 @router.message(F.text, StateFilter(MainStates.message_request))
@@ -458,7 +463,7 @@ async def anket_state_switch(message: Message, state: FSMContext) -> None:
     match message.text:
         case 'отключить анкету 😴':
             await change_anket_status(message.from_user.id, False)
-            await message.answer('Профитроли айкос дарк рейв вписка, соли дабл мамонт - ору. Отключил анкету.',
+            await message.answer('Отключил твою анкету.',
                                 reply_markup=turn_anket_on_kb())
             
         case 'включить анкету' | 'назад':

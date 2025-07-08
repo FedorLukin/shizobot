@@ -1,5 +1,5 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 
 def start_bot_kb() -> ReplyKeyboardMarkup:
@@ -10,16 +10,16 @@ def start_bot_kb() -> ReplyKeyboardMarkup:
 
 def gender_selection_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
-    kb.add(KeyboardButton(text='фемцел'))
-    kb.add(KeyboardButton(text='инцел'))
+    kb.add(KeyboardButton(text='девушка'))
+    kb.add(KeyboardButton(text='парень'))
     return kb.as_markup(resize_keyboard=True)
 
 
 def interest_selection_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
-    kb.add(KeyboardButton(text='фемцелочку'))
-    kb.add(KeyboardButton(text='инцела'))
-    kb.add(KeyboardButton(text='да похуй'))
+    kb.add(KeyboardButton(text='девушку'))
+    kb.add(KeyboardButton(text='парня'))
+    kb.add(KeyboardButton(text='всё равно'))
     kb.adjust(2, 1)
     return kb.as_markup(resize_keyboard=True)
 
@@ -104,7 +104,14 @@ def subscribe_confirm() -> ReplyKeyboardMarkup:
     kb.adjust(1)
     return kb.as_markup(resize_keyboard=True)
 
+
 def call_menu_kb() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder()
     kb.add(KeyboardButton(text='/menu'))
+    return kb.as_markup(resize_keyboard=True)
+
+
+def start_chat_kb(id: int, name: str) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text=name, url=f"tg://user?id={id}")
     return kb.as_markup(resize_keyboard=True)
