@@ -266,7 +266,7 @@ async def anket_saving(message: Message, state: FSMContext) -> None:
 async def check_subscription(message: Message, state: FSMContext, bot: Bot):
     """Проверка подписки на канал"""
     if message.text == 'я подписался':
-        member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
+        member = await bot.get_chat_member(chat_id='@squad_shizo', user_id=message.from_user.id)
         if member.status == 'left':
             await message.answer(text='У меня другое мнение на этот счёт, подпишись и пробуй снова.')
         else:
@@ -279,7 +279,7 @@ async def start_search_or_edit_anket(message: Message, state: FSMContext, bot: B
     """Опции редактирования анкеты или старт поиска анкет"""
     match message.text:
         case '1🚀': # проверка подписки и старт поиска анкет 
-            member = await bot.get_chat_member(chat_id='@shizocells', user_id=message.from_user.id)
+            member = await bot.get_chat_member(chat_id='@squad_shizo', user_id=message.from_user.id)
             if member.status == 'left':
                 await state.set_state(MainStates.subscription_check)
                 await message.answer(text='Для использования бота необходимо быть подписанным на <a href="https://t.me/shizocells">канал</a>', reply_markup=subscribe_confirm())
